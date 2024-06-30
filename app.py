@@ -1,10 +1,13 @@
 import io
 import os
 import re
+import urllib.request
+import logging
 from flask import Flask, request, jsonify, Response
 from pytube import YouTube, exceptions as pytube_exceptions
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 def is_valid_youtube_url(url):
     pattern = r"^(https?://)?(www\.)?youtube\.com/watch\?v=[\w-]+(&\S*)?$"
@@ -24,6 +27,7 @@ def get_video_info(url):
         }
         return video_info, None
     except Exception as e:
+        logging.error("Error getting video info: %s", e)
         return None, str(e)
 
 def get_video_stream(url):
@@ -31,13 +35,15 @@ def get_video_stream(url):
         yt = YouTube(url)
         stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
         if stream:
-            video_bytes = io.BytesIO()
-            stream.stream_to_buffer(video_bytes)
-            video_bytes.seek(0)
-            return video_bytes
+            # Adding User-Agent to request headers
+            opener = urllib.request.build_opener()
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+            urllib.request.install_opener(opener)
+            return stream
         else:
             return None
-    except pytube_exceptions.PytubeError:
+    except pytube_exceptions.PytubeError as e:
+        logging.error("Error getting video stream: %s", e)
         return None
 
 @app.after_request
@@ -61,12 +67,27 @@ def download():
     if not stream:
         return jsonify({"error": "Stream not found."}), 500
 
-    response = Response(stream, mimetype='video/mp4')
+    def generate():
+        try:
+            with io.BytesIO() as video_buffer:
+                stream.stream_to_buffer(video_buffer)
+                video_buffer.seek(0)
+                while True:
+                    chunk = video_buffer.read(4096)
+                    if not chunk:
+                        break
+                    yield chunk
+        except Exception as e:
+            logging.error("Error streaming video: %s", e)
+            yield b''
+
+    response = Response(generate(), mimetype='video/mp4')
     response.headers.set(
         "Content-Disposition", 
         f"attachment; filename={video_info['title']}.mp4"
     )
     return response
+
 
 @app.route('/video_info', methods=['POST'])
 def video_info():
