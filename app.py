@@ -3,7 +3,7 @@ import os
 import re
 import urllib.request
 import logging
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, stream_with_context
 from pytube import YouTube, exceptions as pytube_exceptions
 
 app = Flask(__name__)
@@ -69,24 +69,23 @@ def download():
 
     def generate():
         try:
-            with io.BytesIO() as video_buffer:
-                stream.stream_to_buffer(video_buffer)
-                video_buffer.seek(0)
-                while True:
-                    chunk = video_buffer.read(4096)
-                    if not chunk:
-                        break
-                    yield chunk
+            response = urllib.request.urlopen(stream.url)
+            while True:
+                chunk = response.read(4096)
+                if not chunk:
+                    break
+                yield chunk
         except Exception as e:
             logging.error("Error streaming video: %s", e)
             yield b''
 
-    response = Response(generate(), mimetype='video/mp4')
+    response = Response(stream_with_context(generate()), mimetype='video/mp4')
     response.headers.set(
         "Content-Disposition", 
         f"attachment; filename={video_info['title']}.mp4"
     )
     return response
+
 
 
 @app.route('/video_info', methods=['POST'])
