@@ -9,5 +9,4 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY . /app
 
-ENTRYPOINT ["python3"]
-CMD ["app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app"]
