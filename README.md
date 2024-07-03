@@ -1,22 +1,19 @@
 ## 🛠 Installation & Set Up
 
-1. Download the repo :up:
-
-   > [click here](https://github.com/AbassHammed/YoutubeAPI)
-
-2. Install packages
+1. Clone the repo
 
    ```sh
-   pip install -r requirements.txt
+   git clone https://github.com/AbassHammed/YoutubeAPI.git
    ```
 
-3. Start server (Docker)
+2. Start server (Docker)
+   > The Docker deamon must be turning
 
    ```sh
-   docker compose up --build
+   docker compose up -d --build
    ```
 
-4. Stop server
+3. Stop server
 
    ```sh
    docker compose down
